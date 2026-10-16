@@ -1,0 +1,58 @@
+name: Build PDF Color Checker 5.4 (portable)
+on:
+  push:
+    branches: [main]
+    paths:
+      - PDF_Color_Checker_5.4_Build_Source.zip
+      - .github/workflows/build-windows.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+      - name: Install build dependency
+        shell: pwsh
+        run: |
+          if (!(Test-Path "$env:ProgramFiles\7-Zip\7z.exe") -and !(Get-Command 7z.exe -ErrorAction SilentlyContinue)) {
+            choco install 7zip --yes --no-progress
+          }
+      - name: Unpack project source
+        shell: pwsh
+        run: |
+          if (!(Test-Path "PDF_Color_Checker_5.4_Build_Source.zip")) {
+            throw "Upload PDF_Color_Checker_5.4_Build_Source.zip to repository root first."
+          }
+          Expand-Archive -LiteralPath "PDF_Color_Checker_5.4_Build_Source.zip" -DestinationPath ".\source" -Force
+          $mainFile = Get-ChildItem ".\source" -Recurse -File -Filter "main.go" | Select-Object -First 1
+          if (!$mainFile) { throw "main.go missing in source archive" }
+          "SRC_PATH=$($mainFile.DirectoryName)" >> $env:GITHUB_ENV
+      - name: Build EXE with bundled Ghostscript and FOGRA39
+        shell: pwsh
+        run: |
+          & "$env:SRC_PATH\build_portable.ps1"
+          if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Build failed: $LASTEXITCODE" }
+      - name: Smoke-test conversion with embedded Ghostscript
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:SRC_PATH 'dist\PDF_Color_Checker_5.4_Portable.exe'
+          $inputPdf = Join-Path $env:SRC_PATH '.github\testdata\test_rgb.pdf'
+          $outPdf = Join-Path $env:RUNNER_TEMP 'converted.pdf'
+          $p = Start-Process -FilePath $exe -ArgumentList @('--bundle-smoke-test', ('"' + $inputPdf + '"'), ('"' + $outPdf + '"')) -PassThru -Wait
+          $report = "$outPdf.report.txt"
+          if (Test-Path $report) { Get-Content $report }
+          if ($p.ExitCode -ne 0 -or !(Test-Path $outPdf) -or !(Test-Path $report) -or !((Get-Content $report -Raw) -match 'PASS')) {
+            throw "Bundled Ghostscript conversion failed; exit code $($p.ExitCode)"
+          }
+      - name: Upload portable Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDF_Color_Checker_5.4_Portable
+          path: ${{ env.SRC_PATH }}/dist/PDF_Color_Checker_5.4_Portable.exe
+          if-no-files-found: error
