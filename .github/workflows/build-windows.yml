@@ -28,7 +28,17 @@ jobs:
       - name: Build standalone EXE with verified Ghostscript and FOGRA39
         shell: pwsh
         run: |
-          ./build_portable.ps1
+          try {
+            ./build_portable.ps1
+          } catch {
+            Write-Host "=== BUILD FAILURE DETAILS ==="
+            Write-Host "Error: $($_.Exception.Message)"
+            Write-Host "Category: $($_.CategoryInfo)"
+            Write-Host "At: $($_.InvocationInfo.PositionMessage)"
+            Write-Host "Trace: $($_.ScriptStackTrace)"
+            $_ | Format-List * -Force | Out-String | Write-Host
+            throw
+          }
           if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Build failed: $LASTEXITCODE" }
           if (!(Test-Path "dist/PDF_Color_Checker_5.4_Portable.exe")) {
             throw "Portable EXE missing"
