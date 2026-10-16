@@ -13,7 +13,7 @@ $dist = Join-Path $root "dist"
 $payload = Join-Path $root "assets\ghostscript_bundle.zip"
 $gsUrl = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10080/gs10080w64.exe"
 $gsSHA256 = "52a91b8bf09298788d7a57b9206127026c23eacd75405f0a131e26dc381dce50"
-$eciUrl = "https://www.eci.org/lib/exe/fetch.php?media=downloads:icc_profiles_from_eci:eci_offset_2009.zip"
+$eciUrl = "https://eci.org/lib/exe/eci_offset_2009.zip"
 
 function Fetch([string]$url, [string]$dest) {
     if ($SkipDownload -and (Test-Path -LiteralPath $dest)) { return }
@@ -73,6 +73,13 @@ if ($lib) { Copy-Item $lib.FullName (Join-Path $staging 'lib') -Recurse }
 $fonts = Get-ChildItem -LiteralPath $unpacked -Recurse -Directory -Filter fonts | Select-Object -First 1
 if ($fonts) { Copy-Item $fonts.FullName (Join-Path $staging 'fonts') -Recurse }
 
+if ((Get-Item -LiteralPath $eciZip).Length -lt 1000000) {
+    throw "ECI download is unexpectedly small: $((Get-Item $eciZip).Length) bytes"
+}
+$header = [IO.File]::ReadAllBytes($eciZip)
+if ($header[0] -ne 0x50 -or $header[1] -ne 0x4B) {
+    throw "ECI download is not a ZIP archive"
+}
 Expand-Archive -LiteralPath $eciZip -DestinationPath $eciFolder -Force
 $icc = Get-ChildItem -LiteralPath $eciFolder -Recurse -File -Filter ISOcoated_v2_eci.icc | Select-Object -First 1
 if (!$icc) { throw "FOGRA39 ISOcoated_v2_eci.icc missing from ECI download" }
