@@ -31,17 +31,39 @@ func bundledPaths(dir string) (string, string, string) {
 	return executable, profile, strings.Join(parts, string(os.PathListSeparator))
 }
 
+// gswin64c.exe is a small Windows launcher. Its size can be under 100 KiB.
+// The substantial Ghostscript engine lives in gsdll64.dll.
+func validWindowsGhostscript(executable string) bool {
+	fi, err := os.Stat(executable)
+	if err != nil || fi.IsDir() || fi.Size() < 1024 {
+		return false
+	}
+	dll := filepath.Join(filepath.Dir(executable), "gsdll64.dll")
+	di, err := os.Stat(dll)
+	if err != nil || di.IsDir() || di.Size() < 1<<20 {
+		return false
+	}
+	f, err := os.Open(executable)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var magic [2]byte
+	return readMZ(f, magic[:])
+}
+
+func readMZ(file *os.File, magic []byte) bool {
+	_, err := io.ReadFull(file, magic)
+	return err == nil && magic[0] == 'M' && magic[1] == 'Z'
+}
+
 func isBundledRuntimeReady(dir string, expectedHash string) bool {
 	marker, err := os.ReadFile(filepath.Join(dir, ".ready"))
 	if err != nil || strings.TrimSpace(string(marker)) != expectedHash {
 		return false
 	}
 	exe, profile, _ := bundledPaths(dir)
-	fi, err := os.Stat(exe)
-	if err != nil || fi.Size() < 100000 {
-		return false
-	}
-	return validFOGRA(profile)
+	return validWindowsGhostscript(exe) && validFOGRA(profile)
 }
 
 // ensureBundledRuntime extracts the embedded Ghostscript executables and ICC data into
@@ -140,8 +162,8 @@ func ensureBundledRuntime() (string, string, string, error) {
 		}
 	}
 	gs, icc, _ := bundledPaths(temp)
-	if stat, e := os.Stat(gs); e != nil || stat.Size() < 100000 {
-		return "", "", "", fmt.Errorf("в архиве отсутствует Windows-движок gswin64c.exe")
+	if !validWindowsGhostscript(gs) {
+		return "", "", "", fmt.Errorf("встроенный движок Ghostscript неполный: требуются bin/gswin64c.exe и bin/gsdll64.dll")
 	}
 	if !validFOGRA(icc) {
 		return "", "", "", fmt.Errorf("встроенный ICC-профиль FOGRA39 отсутствует или повреждён")
