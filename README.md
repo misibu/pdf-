@@ -1,9 +1,12 @@
-# PDF Color Checker
+# PDF Color Checker 5.4
 
-Приложение для проверки RGB/CMYK в PDF и преобразования RGB в CMYK с ICC-профилем ISO Coated v2 (FOGRA39).
+**Однофайловое приложение для Windows 64-bit:** проверяет PDF на RGB/CMYK, подсвечивает результаты и сохраняет TXT со списком проблемных файлов. Преобразует RGB PDF в CMYK по ISO Coated v2 (FOGRA39), используя Ghostscript, встроенный в EXE.
 
-## Сборка Windows EXE
+## Как собрать EXE
+1. На главной странице репозитория нажмите **Add file → Upload files**.
+2. Загрузите **PDF_Color_Checker_5.4_Build_Source.zip** без распаковки и нажмите **Commit changes**.
+3. Перейдите во вкладку **Actions → Build PDF Color Checker 5.4 (portable)**. Дождитесь зелёной отметки и скачайте архив из блока **Artifacts**. Внутри будет **PDF_Color_Checker_5.4_Portable.exe**.
 
-Репозиторий будет собираться через GitHub Actions. Сборка скачивает официальный Ghostscript, проверяет SHA-256, добавляет ICC FOGRA39, встраивает движок в один EXE и проверяет конвертацию на тестовом PDF.
+Сборка автоматически скачивает и проверяет Ghostscript, добавляет ICC-профиль FOGRA39 и запускает тест реальной PDF-конвертации. Отдельно устанавливать Ghostscript сотрудникам не понадобится.
 
-Для внутреннего использования в типографии. Учитывайте условия AGPLv3 для Ghostscript и лицензию ICC-профиля ECI.
+**Важно:** конвертация не заменяет профессиональный Preflight. Код Ghostscript распространяется по AGPLv3 либо коммерческой лицензии Artifex; соблюдайте её условия.
